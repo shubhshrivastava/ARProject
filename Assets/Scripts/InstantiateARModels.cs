@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine.XR.ARFoundation;
 using UnityEngine.XR.ARSubsystems;
+using AR_Project.Scripts.AndroidNativeFunctionality;
 
 [RequireComponent(typeof(ARRaycastManager))]
 public class InstantiateARModels : MonoBehaviour
@@ -17,10 +18,8 @@ public class InstantiateARModels : MonoBehaviour
     [Header("Scaling")]
     private float initialFingerDistance;
     private Vector3 initialScale;
-    private Vector3 finalScale;
 
     [Header("Rotation")]
-    private Touch touchConti;
     private float getrotatioDir;
 
     private void Awake()
@@ -30,9 +29,9 @@ public class InstantiateARModels : MonoBehaviour
 
     private void Update()
     {
-        if (!TouchInput(out touchPosition, touchConti))
+        if (!TouchInput(out touchPosition) && !PopupUI.Instance.mUnlock)
             return;
-        if (arRaycastManager.Raycast(touchPosition, arRaycasthitList, TrackableType.PlaneWithinPolygon))
+        if (arRaycastManager.Raycast(touchPosition, arRaycasthitList, TrackableType.PlaneWithinPolygon) && !PopupUI.Instance.mUnlock)
         {
             var hitPose = arRaycasthitList[0].pose;
             if (spawnPrefab == null)
@@ -42,21 +41,23 @@ public class InstantiateARModels : MonoBehaviour
         }
     }
 
-    private bool TouchInput(out Vector2 _touchPos, Touch _touchcontinue)
+    private bool TouchInput(out Vector2 _touchPos)
     {
-        if (Input.touchCount > 0)
+        if (!PopupUI.Instance.mUnlock)
         {
-            Touch touch = Input.GetTouch(0);
-            if (Input.touchCount == 1 && touch.phase == TouchPhase.Ended)
+            if (Input.touchCount > 0)
             {
-                Debug.Log("Tap");
-                _touchPos = Input.GetTouch(0).position;
-                return true;
+                Touch touch = Input.GetTouch(0);
+                if (Input.touchCount == 1 && touch.phase == TouchPhase.Ended)
+                {
+                    _touchPos = Input.GetTouch(0).position;
+                    return true;
+                }
+                if (Input.touchCount == 2)
+                    Scale(touch);
+                if (Input.touchCount == 1)
+                    Rotate(touch);
             }
-            if (Input.touchCount == 2)
-                Scale(touch);
-            if (Input.touchCount == 1)
-                Rotate(touch);
         }
         _touchPos = default;
         return false;
@@ -64,14 +65,10 @@ public class InstantiateARModels : MonoBehaviour
 
     private void Rotate(Touch touch)
     {
-        Debug.Log("Rotation");
         if (touch.phase == TouchPhase.Moved)
         {
-            Debug.Log("Moved");
             getrotatioDir = touch.deltaPosition.y;
-            Debug.Log("calculateRotationDirection" + getrotatioDir);
             float newgetRotationDirSpeed = getrotatioDir;
-            Debug.Log("newgetRotationDir" + newgetRotationDirSpeed);
 
 #if UNITY_EDITOR
             testTransform.transform.Rotate(Vector3.up * newgetRotationDirSpeed);
@@ -86,30 +83,23 @@ public class InstantiateARModels : MonoBehaviour
     {
         if (touch.phase == TouchPhase.Began)
         {
-            Debug.Log("touchPhase has been started");
             initialFingerDistance = Vector3.Distance(Input.touches[0].position, Input.touches[1].position);
-            Debug.Log("InitalfigerDistance:" + initialFingerDistance);
 #if !UNITY_EDITOR && UNITY_ANDROID
                     initialScale = spawnPrefab.transform.localScale;
 #endif
 #if UNITY_EDITOR
             initialScale = testTransform.transform.localScale;
 #endif
-            Debug.Log("initialScale:" + initialScale);
         }
         if (touch.phase == TouchPhase.Moved)
         {
-            Debug.Log("Moved");
             float currentFingerDistance = Vector3.Distance(Input.touches[0].position, Input.touches[1].position);
-            Debug.Log("CurrentfingerDistance" + currentFingerDistance);
             float calculateDistance = currentFingerDistance / initialFingerDistance;
-            Debug.Log("CalculateDistance" + calculateDistance);
 #if !UNITY_EDITOR && UNITY_ANDROID
                     spawnPrefab.transform.localScale = initialScale * calculateDistance;
 #endif
 #if UNITY_EDITOR
             testTransform.transform.localScale = initialScale * calculateDistance;
-            Debug.Log("FinalScale" + testTransform.transform.localScale);
 #endif
         }
 
